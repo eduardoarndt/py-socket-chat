@@ -12,14 +12,13 @@ LIST_MSG = "/list"
 
 server = None
 
-clients = {}
+clients = []
 username_list = []
 
 
-def disconnect(client):
-    name = list(clients.keys()).index(client)
-    username_list.pop(name)
-    clients.pop(client)
+def disconnect(client, username):
+    username_list.remove(username)
+    clients.remove(client)
 
 
 def broadcast(msg):
@@ -27,35 +26,32 @@ def broadcast(msg):
         client.send(msg.encode(FORMAT))
 
 
-def handle(client, address):
+def handle(client, username):
+    client.send("welcome to the chat {}!".format(username).encode(FORMAT))
+
     while True:
         try:
             msg = client.recv(HEADER_SIZE).decode(FORMAT)
-            username = username_list[list(clients.keys()).index(client)]
 
             # até a versão 3.10 do python não existia switch/case na languagem
             # então tem que fazer essa coisa feia aqui
             if EXIT_MSG == msg:
-                print("{} left!".format(username))
+                broadcast("{} left!".format(username))
                 client.send(EXIT_MSG.encode(FORMAT))
-                disconnect(client)
+                disconnect(client, username)
                 break
             elif LIST_MSG == msg:
-                client.send(("user list: " + ", ".join(username_list)).encode(FORMAT))
+                user_list = ("user list: " + ", ".join(username_list))
+                client.send(user_list.encode(FORMAT))
             elif CMDS_MSG == msg:
-                commands_list = (
-                    "/key - list commands\n"
-                    + "/list - list users\n"
-                    + "/exit - exits chat\n"
-                )
-
+                commands_list = ("- /key - list commands\n- /list - list users\n- /exit - exits chat")
                 client.send(commands_list.encode(FORMAT))
             elif msg:
                 broadcast("{}: {}".format(username, msg))
             else:
                 continue
         except:
-            disconnect(client)
+            disconnect(client, username)
             break
 
 
@@ -63,7 +59,7 @@ def main():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((SERVER, PORT))
     server.listen()
-    print("Started server")
+    print("started server")
 
     while True:
         client, address = server.accept()
@@ -72,16 +68,14 @@ def main():
         client.send("/name".encode(FORMAT))
         username = client.recv(HEADER_SIZE).decode(FORMAT)
         username_list.append(username)
-        clients[client] = "0"
+        clients.append(client)
 
         print("new connection set username as {}".format(username))
         broadcast("{} joined!".format(username))
 
-        client.send("Welcome to the chat {}!".format(username).encode(FORMAT))
-
         # a função handle é responsável por controlar as mensagens e comandos
         # é executado em threads para que cada conexão seja processada 'paralelamente'
-        thread = threading.Thread(target=handle, args=(client, address))
+        thread = threading.Thread(target=handle, args=[client, username])
         thread.start()
 
 
