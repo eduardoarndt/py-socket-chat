@@ -14,18 +14,16 @@ server = None
 
 clients = {}
 username_list = []
-chat_rooms = {"0": []}
 
 
 def disconnect(client):
     name = list(clients.keys()).index(client)
     username_list.pop(name)
-    chat_rooms[clients[client]].remove(client)
     clients.pop(client)
 
 
-def broadcast(msg, room):
-    for client in room:
+def broadcast(msg):
+    for client in clients:
         client.send(msg.encode(FORMAT))
 
 
@@ -53,7 +51,7 @@ def handle(client, address):
 
                 client.send(commands_list.encode(FORMAT))
             elif msg:
-                broadcast(f"{username}: {msg}", chat_rooms[clients[client]])
+                broadcast("{}: {}".format(username, msg))
             else:
                 continue
         except:
@@ -75,10 +73,9 @@ def main():
         username = client.recv(HEADER_SIZE).decode(FORMAT)
         username_list.append(username)
         clients[client] = "0"
-        chat_rooms["0"].append(client)
 
         print("new connection set username as {}".format(username))
-        broadcast("{} joined!".format(username), chat_rooms["0"])
+        broadcast("{} joined!".format(username))
 
         client.send("Welcome to the chat {}!".format(username).encode(FORMAT))
 
